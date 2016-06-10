@@ -16,6 +16,7 @@ OUTPUT_DIR = "output"
 
 
 class DeploymentRunner:
+
     def __init__(self, name, runner_config):
         self.name = name
         self.working_directory = Path(runner_config["working_directory"])
@@ -45,7 +46,7 @@ class DeploymentRunner:
             build_repo = Repo(str(self.build_repo_path))
 
         except (InvalidGitRepositoryError, NoSuchPathError) as e:
-            if not self.build_repo_path.is_dir() or \
+            if self.build_repo_path.is_dir() and \
                     next(self.build_repo_path.iterdir(), None) is not None:
                 log.error("non-empty %s exists but not a valid git repository!",
                           self.build_repo_path)
@@ -56,13 +57,23 @@ class DeploymentRunner:
                                              str(self.build_repo_path),
                                              branch=self.git_branch)
 
+        if build_repo.remotes.origin.url != self.clone_url:
+            cw = build_repo.remotes.origin.config_writer
+            cw.set("url", self.clone_url)
+            cw.release()
+
         build_repo.head.reference = build_repo.create_head(self.git_branch)
         assert not build_repo.head.is_detached
+
+        # deinit submodules to avoid removed ones dangling around later
+        # they should stay around in .git, so reinit should be fast
+        build_repo.git.submodule("deinit", ".")
 
         build_repo.remotes.origin.pull(
             force=True,
             no_edit=True,
-            refspec="+{b}:{b}".format(b=self.git_branch))
+            refspec="+{b}:{b}".format(b=self.git_branch),
+            recurse_submodules="yes")
 
         # forcefully reset the working tree
         build_repo.head.reset(index=True, working_tree=True)
@@ -70,6 +81,9 @@ class DeploymentRunner:
             build_repo.git.clean(force=True)
         except:
             log.warning("git clean failed!", exc_info=True)
+
+        # update the submodules
+        build_repo.git.submodule("update", "--init", "--force", "--recursive")
 
     def build(self, abort_running=False):
         with self._build_lock:
