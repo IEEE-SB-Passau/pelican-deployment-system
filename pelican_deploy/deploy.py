@@ -8,6 +8,7 @@ import sys
 import logging
 import shlex
 import os
+import atexit
 
 log = logging.getLogger(__name__)
 
@@ -117,7 +118,10 @@ class DeploymentRunner:
             self.build_proc = Popen(args,
                                     cwd=str(self.build_repo_path),
                                     env=self.build_proc_env)
+            atexit.register(self.build_proc.kill)
             status = self.build_proc.wait()
+            atexit.unregister(self.build_proc.kill)
+
             if status == 0:
                 # TODO: postproc...
                 pass
