@@ -1,5 +1,10 @@
+import os
+
 if __name__ == "__main__":
     raise SystemExit("Not meant to be run directly!")
+
+# make sure git does not block giving pw prompts
+os.environ["GIT_TERMINAL_PROMPT"] = "0"
 
 RUNNERS = {
     "website_master": {
