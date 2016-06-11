@@ -34,13 +34,13 @@ class DeploymentRunner:
             name=name)
         self.pelican_command = runner_config["pelican_command"].format(
             output=OUTPUT_DIR.format(name=name))
-        self.build_proc_env = dict(os.environ,
-                                   **runner_config.get("pelican_env", {}))
+        self._build_proc_env = dict(os.environ,
+                                    **runner_config.get("pelican_env", {}))
 
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.futures = set()
-        self.build_proc = None
-        self.abort = False
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._futures = set()
+        self._build_proc = None
+        self._abort = False
         self._build_lock = RLock()
 
     def update_build_repository(self):
@@ -94,35 +94,35 @@ class DeploymentRunner:
                 self.try_abort_build()
 
             # cancel everything, so we are next
-            for fut in self.futures.copy():
+            for fut in self._futures.copy():
                 fut.cancel()
                 if fut.done():
-                    self.futures.remove(fut)
+                    self._futures.remove(fut)
 
-            self.futures.add(self.executor.submit(self.build_blocking))
+            self._futures.add(self._executor.submit(self.build_blocking))
 
     def try_abort_build(self):
-        proc = self.build_proc
-        self.abort = True
+        proc = self._build_proc
+        self._abort = True
         if proc:
             proc.kill()
 
     def build_blocking(self):
-        self.abort = False
+        self._abort = False
 
         # preparing build environment
         self.update_build_repository()
         # TODO: prepare_output()
 
         # start the build if we should not abort
-        if not self.abort:
+        if not self._abort:
             args = shlex.split(self.pelican_command)
-            self.build_proc = Popen(args,
-                                    cwd=str(self.build_repo_path),
-                                    env=self.build_proc_env)
-            atexit.register(self.build_proc.kill)
-            status = self.build_proc.wait()
-            atexit.unregister(self.build_proc.kill)
+            self._build_proc = Popen(args,
+                                     cwd=str(self.build_repo_path),
+                                     env=self._build_proc_env)
+            atexit.register(self._build_proc.kill)
+            status = self._build_proc.wait()
+            atexit.unregister(self._build_proc.kill)
 
             if status == 0:
                 # TODO: postproc...
