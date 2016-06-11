@@ -32,8 +32,9 @@ class DeploymentRunner:
         self.target_directory = runner_config["target_directory"]
         self.build_repo_path = self.working_directory / BUILD_REPO_DIR.format(
             name=name)
+        outdir = self.working_directory / OUTPUT_DIR.format(name=name)
         self.build_command = runner_config["build_command"].format(
-            output=OUTPUT_DIR.format(name=name))
+            output=outdir)
         self._build_proc_env = dict(os.environ,
                                     **runner_config.get("build_env", {}))
 
