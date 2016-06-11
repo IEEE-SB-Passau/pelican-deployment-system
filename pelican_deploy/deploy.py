@@ -32,10 +32,10 @@ class DeploymentRunner:
         self.target_directory = runner_config["target_directory"]
         self.build_repo_path = self.working_directory / BUILD_REPO_DIR.format(
             name=name)
-        self.pelican_command = runner_config["pelican_command"].format(
+        self.build_command = runner_config["build_command"].format(
             output=OUTPUT_DIR.format(name=name))
         self._build_proc_env = dict(os.environ,
-                                    **runner_config.get("pelican_env", {}))
+                                    **runner_config.get("build_env", {}))
 
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._futures = set()
@@ -116,7 +116,7 @@ class DeploymentRunner:
 
         # start the build if we should not abort
         if not self._abort:
-            args = shlex.split(self.pelican_command)
+            args = shlex.split(self.build_command)
             self._build_proc = Popen(args,
                                      cwd=str(self.build_repo_path),
                                      env=self._build_proc_env)
