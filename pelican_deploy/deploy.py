@@ -12,8 +12,8 @@ import atexit
 
 log = logging.getLogger(__name__)
 
-BUILD_REPO_DIR = "build_repo"
-OUTPUT_DIR = "output"
+BUILD_REPO_DIR = "{name}_build_repo"
+OUTPUT_DIR = "{name}_output"
 
 
 class DeploymentRunner:
@@ -30,9 +30,10 @@ class DeploymentRunner:
         self.clone_url = runner_config["clone_url"]
         self.git_branch = runner_config["git_branch"]
         self.target_directory = runner_config["target_directory"]
-        self.build_repo_path = self.working_directory / BUILD_REPO_DIR
+        self.build_repo_path = self.working_directory / BUILD_REPO_DIR.format(
+            name=name)
         self.pelican_command = runner_config["pelican_command"].format(
-            output=OUTPUT_DIR)
+            output=OUTPUT_DIR.format(name=name))
         self.build_proc_env = dict(os.environ,
                                    **runner_config.get("pelican_env", {}))
 
@@ -49,8 +50,9 @@ class DeploymentRunner:
         except (InvalidGitRepositoryError, NoSuchPathError) as e:
             if self.build_repo_path.is_dir() and \
                     next(self.build_repo_path.iterdir(), None) is not None:
-                log.error("non-empty %s exists but not a valid git repository!",
-                          self.build_repo_path)
+                log.error(
+                    "non-empty %s exists but not a valid git repository!",
+                    self.build_repo_path)
                 raise
             else:
                 log.info("Build repository %s not there, cloneing", e)
