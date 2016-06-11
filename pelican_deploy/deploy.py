@@ -1,7 +1,7 @@
 from pathlib import Path
 from collections import namedtuple
 from git import Repo, InvalidGitRepositoryError, NoSuchPathError
-from subprocess import Popen
+from subprocess import Popen, PIPE
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 import sys
@@ -62,6 +62,9 @@ class DeploymentRunner:
                                              branch=self.git_branch)
 
         if build_repo.remotes.origin.url != self.clone_url:
+            log.info("%s build_repo: URL of git origin changed (`%s` --> `%s`),\
+                     adjusting...", self.name, build_repo.remotes.origin.url,
+                     self.clone_url)
             cw = build_repo.remotes.origin.config_writer
             cw.set("url", self.clone_url)
             cw.release()
@@ -73,12 +76,14 @@ class DeploymentRunner:
         # they should stay around in .git, so reinit should be fast
         build_repo.git.submodule("deinit", ".")
 
+        log.info("%s build_repo: pulling changes from origin", self.name)
         build_repo.remotes.origin.pull(
             force=True,
             no_edit=True,
             refspec="+{b}:{b}".format(b=self.git_branch),
             recurse_submodules="yes")
 
+        log.info("%s build_repo: resetting the working tree", self.name)
         # forcefully reset the working tree
         build_repo.head.reset(index=True, working_tree=True)
         try:
@@ -118,12 +123,26 @@ class DeploymentRunner:
         # start the build if we should not abort
         if not self._abort:
             args = shlex.split(self.build_command)
-            self._build_proc = Popen(args,
+            log.info("%s: Starting build_command `%s`", self.name, args)
+            self._build_proc = Popen(args, stdout=PIPE, stderr=PIPE,
                                      cwd=str(self.build_repo_path),
                                      env=self._build_proc_env)
             atexit.register(self._build_proc.kill)
+            outs, errs = self._build_proc.communicate()
             status = self._build_proc.wait()
             atexit.unregister(self._build_proc.kill)
+
+            if status < 0:
+                log.info("%s: killed build_command", self.name)
+            else:
+                log.info('%s build_command stdout: %s\n', self.name,
+                         outs.decode(encoding=sys.getdefaultencoding(),
+                                     errors='replace'))
+                log.info('%s build_command stderr: %s\n', self.name,
+                          errs.decode(encoding=sys.getdefaultencoding(),
+                                      errors='replace'))
+                log.info("%s: finished build_command with status %s!",
+                         self.name, status)
 
             if status == 0:
                 # TODO: postproc...
