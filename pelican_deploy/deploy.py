@@ -81,7 +81,7 @@ class DeploymentRunner:
         # forcefully reset the working tree
         build_repo.head.reset(index=True, working_tree=True)
         try:
-            build_repo.git.clean(force=True)
+            build_repo.git.clean(force=True, d=True, x=True)
         except:
             log.warning("git clean failed!", exc_info=True)
 
