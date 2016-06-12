@@ -1,6 +1,6 @@
 from pathlib import Path
 from collections import namedtuple
-from git import Repo, InvalidGitRepositoryError, NoSuchPathError
+from pelican_deploy.gittool import Repo
 from subprocess import Popen, PIPE
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
@@ -47,55 +47,45 @@ class DeploymentRunner:
         self._build_lock = RLock()
 
     def update_build_repository(self):
-        try:
-            build_repo = Repo(str(self.build_repo_path))
-
-        except (InvalidGitRepositoryError, NoSuchPathError) as e:
+        repo = Repo(str(self.build_repo_path))
+        if not repo.is_repo():
             if self.build_repo_path.is_dir() and \
                     next(self.build_repo_path.iterdir(), None) is not None:
                 log.error(
                     "non-empty %s exists but not a valid git repository!",
                     self.build_repo_path)
-                raise
+                raise RuntimeException(("non-empty {} exists but not a"
+                    "valid git repository!").format(self.build_repo_path))
             else:
                 log.info("Build repository %s not there, cloneing", e)
-                build_repo = Repo.clone_from(self.clone_url,
-                                             str(self.build_repo_path),
-                                             branch=self.git_branch)
+                result = repo.clone("--branch", "self.git_branch",
+                                    "--depth", "1", self.clone_url, ".")
 
-        if build_repo.remotes.origin.url != self.clone_url:
+        origin_url = repo.config_get("remote.origin.url")
+        if origin_url != self.clone_url:
             log.info("%s build_repo: URL of git origin changed (`%s` --> `%s`),\
-                     adjusting...", self.name, build_repo.remotes.origin.url,
-                     self.clone_url)
-            cw = build_repo.remotes.origin.config_writer
-            cw.set("url", self.clone_url)
-            cw.release()
-
-        build_repo.head.reference = build_repo.create_head(self.git_branch)
-        assert not build_repo.head.is_detached
+                     adjusting...", self.name, origin_url, self.clone_url)
+            repo.config("remote.origin.url", self.clone_url)
 
         # deinit submodules to avoid removed ones dangling around later
         # they should stay around in .git, so reinit should be fast
-        build_repo.git.submodule("deinit", ".")
+        repo.submodule("deinit", ".")
+
+        log.info("%s build_repo: reset it hard!", self.name)
+        repo.reset("--hard")
 
         log.info("%s build_repo: pulling changes from origin", self.name)
-        build_repo.remotes.origin.pull(
-            force=True,
-            no_edit=True,
-            refspec="+{b}:{b}".format(b=self.git_branch),
-            recurse_submodules="yes")
-
-        log.info("%s build_repo: resetting the working tree", self.name)
-        # forcefully reset the working tree
-        build_repo.head.reset(index=True, working_tree=True)
+        refspec = "+{b}:{b}".format(b=self.git_branch)
+        repo.pull("--force", "--no-edit", "--recurse-submodules", "--depth",
+                  "1", "origin", refspec)
         try:
-            build_repo.git.clean(force=True, d=True, x=True)
+            repo.clean("--force", "-d", "-x")
         except:
             log.warning("git clean failed!", exc_info=True)
 
         # update the submodules
         log.info("%s build_repo: update submodules", self.name)
-        build_repo.git.submodule("update", "--init", "--force", "--recursive")
+        repo.submodule("update", "--init", "--force", "--recursive")
 
     def build(self, abort_running=False):
         with self._build_lock:

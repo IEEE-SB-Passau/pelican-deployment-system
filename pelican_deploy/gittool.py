@@ -5,6 +5,12 @@ from subprocess import Popen, PIPE
 
 CmdResult = namedtuple("CmdResult", "status stdout stderr")
 
+class GitCommandError(Exception):
+    def __init__(self, message, result, *args, **kwargs):
+        super().__init__(message, result, *args, **kwargs)
+        self.result = result
+
+
 class Repo:
     def __init__(self, repo_dir, git_cmd="git", default_timeout=None):
         self.repo_dir = repo_dir
@@ -18,20 +24,29 @@ class Repo:
             return self.cmd(*((self.git_cmd, name) + tuple(cmdargs)), **kwargs)
         return cmdcaller
 
-    def cmd(self, *args, timeout=None, env=None):
-        timeout = timeout if timeout else default_timeout
+    def cmd(self, *args, timeout=None, env=None, universal_newlines=True,
+            errors_raise=True):
+        timeout = timeout if timeout else self.default_timeout
         proc = self.popen_cmd(*args, env=env)
         outs, errs = proc.communicate(timeout=timeout)
         status = proc.wait()
+        res = CmdResult(status, outs, errs)
+        if status != 0 and errors_raise:
+            raise GitCommandError("git failed: {}".format(args), res)
         return CmdResult(status, outs, errs)
 
-    def popen_cmd(self, *args, env=None):
-        return Popen(args, stdout=PIPE, stderr=PIPE, cwd=self.repo_dir, env=env)
+    def popen_cmd(self, *args, env=None, universal_newlines=True):
+        return Popen(args, stdout=PIPE, stderr=PIPE, cwd=self.repo_dir, env=env,
+                     universal_newlines=universal_newlines)
 
     def is_bare(self):
         result = self.rev_parse("--is-bare-repository")
-        return result.stdout.startswith(b"true")
+        return result.stdout.startswith("true")
 
     def is_repo(self):
-        return self.rev_parse("--git-dir").status == 0
+        return self.rev_parse("--git-dir", errors_raise=False).status == 0
+
+    def config_get(self, key):
+        res = self.config("--get", key)
+        return res.stdout.rstrip("\r\n")
 
