@@ -84,7 +84,9 @@ class DeploymentRunner:
         result = repo.submodule("deinit", ".")
         log_git(result)
 
-        log.info("%s build_repo: reset it hard!", self.name)
+        result = repo.checkout("--force", self.git_branch)
+        log_git(result)
+
         result = repo.reset("--hard")
         log_git(result)
 
