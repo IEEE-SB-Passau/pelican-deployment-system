@@ -6,8 +6,11 @@ if __name__ == "__main__":
 # make sure git does not block giving pw prompts, git 2.3+ only
 os.environ["GIT_TERMINAL_PROMPT"] = "0"
 
+# needs to be a byte like object
+GITHUB_SECRET = b"changetosomethingrandomlong"
+
 RUNNERS = {
-    # name of the runner, avoid spaces and other obscure cahracters
+    # unique name of the runner, avoid spaces and other obscure characters
     "website_master": {
 
         # directory where building takes place, will be created if not there
