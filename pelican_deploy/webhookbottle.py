@@ -43,7 +43,7 @@ def _verify_github_signature(sighdr, body):
 
 
 @app.post('/github/<name>')
-def index(name):
+def github(name):
     sighdr = request.headers.get("X-Hub-Signature", "")
     if not _verify_github_signature(sighdr, request.body.read()):
         log.error("Github request for %s faild to validate. "
