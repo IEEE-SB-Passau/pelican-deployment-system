@@ -121,7 +121,7 @@ class DeploymentRunner:
     def final_install(self):
         args = shlex.split(self.final_install_command)
         log.info("%s: Starting final_install `%s`", self.name, args)
-        proc = Popen(args, stdout=PIPE, stderr=PIPE)
+        proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         atexit.register(proc.kill)
         outs, errs = proc.communicate()
         status = proc.wait()
@@ -130,14 +130,10 @@ class DeploymentRunner:
         if status < 0:
             log.info("%s: killed final_install_command (%s)", self.name, status)
         else:
-            log.info('%s final_install_command stdout: %s\n', self.name,
-                        outs.decode(encoding=sys.getdefaultencoding(),
-                                    errors='replace'))
-            log.info('%s final_install_command stderr: %s\n', self.name,
-                        errs.decode(encoding=sys.getdefaultencoding(),
-                                    errors='replace'))
             log.info("%s: finished final_install_command with status %s!",
                         self.name, status)
+            log.info('%s final_install_command stdout: %s\n', self.name, outs)
+            log.info('%s final_install_command stderr: %s\n', self.name, errs)
 
         if status > 0:
             log.error("%s: final_install failed! Website may be broken!",
@@ -156,7 +152,8 @@ class DeploymentRunner:
             log.info("%s: Starting build_command `%s`", self.name, args)
             self._build_proc = Popen(args, stdout=PIPE, stderr=PIPE,
                                      cwd=str(self.build_repo_path),
-                                     env=self._build_proc_env)
+                                     env=self._build_proc_env,
+                                     universal_newlines=True)
             atexit.register(self._build_proc.kill)
             outs, errs = self._build_proc.communicate()
             status = self._build_proc.wait()
@@ -165,13 +162,9 @@ class DeploymentRunner:
             if status < 0:
                 log.info("%s: killed build_command", self.name)
             else:
-                log.info('%s build_command stdout: %s\n', self.name,
-                         outs.decode(encoding=sys.getdefaultencoding(),
-                                     errors='replace'))
-                log.info('%s build_command stderr: %s\n', self.name,
-                          errs.decode(encoding=sys.getdefaultencoding(),
-                                      errors='replace'))
                 log.info("%s: finished build_command with status %s!",
                          self.name, status)
+                log.info('%s build_command stdout: %s\n', self.name, outs)
+                log.info('%s build_command stderr: %s\n', self.name, errs)
             if status == 0:
                 self.final_install()
