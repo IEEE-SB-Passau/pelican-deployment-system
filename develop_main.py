@@ -1,11 +1,10 @@
 #! /usr/bin/env python3
 
+import deploy_config
 from pelican_deploy import DeploymentRunner
 import pelican_deploy.webhookbottle
-import deploy_config
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
 
 runners = {name: DeploymentRunner(name, conf)
            for name, conf in deploy_config.RUNNERS.items()}

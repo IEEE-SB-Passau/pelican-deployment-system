@@ -3,6 +3,7 @@ from collections import namedtuple
 from pelican_deploy.gittool import Repo, log_git_result
 from functools import partial
 from subprocess import Popen, PIPE
+from pelican_deploy.util import exception_logged
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
 import sys
@@ -49,8 +50,13 @@ class DeploymentRunner:
         self._build_proc = None
         self._abort = False
         self._build_lock = RLock()
+        self._repo_update_lock = RLock()
 
     def update_build_repository(self):
+        with self._repo_update_lock:
+            self._update_build_repository()
+
+    def _update_build_repository(self):
         repo = Repo(str(self.build_repo_path))
         if not repo.is_repo():
             if self.build_repo_path.is_dir() and \
@@ -110,7 +116,8 @@ class DeploymentRunner:
                 if fut.done():
                     self._futures.remove(fut)
 
-            self._futures.add(self._executor.submit(self.build_blocking))
+            build_func = exception_logged(self.build_blocking, log.error)
+            self._futures.add(self._executor.submit(build_func))
 
     def try_abort_build(self):
         proc = self._build_proc
