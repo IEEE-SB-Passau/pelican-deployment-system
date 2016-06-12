@@ -57,6 +57,9 @@ class DeploymentRunner:
             self._update_build_repository()
 
     def _update_build_repository(self):
+        if not self.build_repo_path.exists():
+            self.build_repo_path.mkdir(parents=True)
+
         repo = Repo(str(self.build_repo_path))
         if not repo.is_repo():
             if self.build_repo_path.is_dir() and \
@@ -67,8 +70,9 @@ class DeploymentRunner:
                 raise RuntimeException(("non-empty {} exists but not a"
                     "valid git repository!").format(self.build_repo_path))
             else:
-                log.info("Build repository %s not there, cloneing", e)
-                result = repo.clone("--branch", "self.git_branch",
+                log.info("Build repository %s not there, cloning",
+                         self.build_repo_path)
+                result = repo.clone("--branch", self.git_branch,
                                     "--depth", "1", self.clone_url, ".")
                 log_git(result)
 

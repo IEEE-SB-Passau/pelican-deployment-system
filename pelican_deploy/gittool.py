@@ -1,4 +1,5 @@
 import os
+import errno
 import shlex
 from collections import namedtuple
 from subprocess import Popen, PIPE
@@ -13,6 +14,9 @@ class GitCommandError(Exception):
 
 class Repo:
     def __init__(self, repo_dir, git_cmd="git", default_timeout=None):
+        if not os.path.exists(repo_dir):
+            raise FileNotFoundError(errno.ENOENT, "Path, does not exist",
+                                    repo_dir)
         self.repo_dir = repo_dir
         self.git_cmd = git_cmd
         self.default_timeout = default_timeout
