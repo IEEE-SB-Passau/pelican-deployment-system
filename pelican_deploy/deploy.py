@@ -29,12 +29,14 @@ class DeploymentRunner:
 
         self.clone_url = runner_config["clone_url"]
         self.git_branch = runner_config["git_branch"]
-        self.target_directory = runner_config["target_directory"]
         self.build_repo_path = self.working_directory / BUILD_REPO_DIR.format(
             name=name)
         outdir = self.working_directory / OUTPUT_DIR.format(name=name)
         self.build_command = runner_config["build_command"].format(
             output=outdir)
+        self.final_install_command = runner_config["final_install_command"]\
+            .format(output=outdir)
+
         self._build_proc_env = dict(os.environ,
                                     **runner_config.get("build_env", {}))
 
@@ -92,6 +94,7 @@ class DeploymentRunner:
             log.warning("git clean failed!", exc_info=True)
 
         # update the submodules
+        log.info("%s build_repo: update submodules", self.name)
         build_repo.git.submodule("update", "--init", "--force", "--recursive")
 
     def build(self, abort_running=False):
@@ -112,6 +115,31 @@ class DeploymentRunner:
         self._abort = True
         if proc:
             proc.kill()
+
+    def final_install(self):
+        args = shlex.split(self.final_install_command)
+        log.info("%s: Starting final_install `%s`", self.name, args)
+        proc = Popen(args, stdout=PIPE, stderr=PIPE)
+        atexit.register(proc.kill)
+        outs, errs = proc.communicate()
+        status = proc.wait()
+        atexit.unregister(proc.kill)
+
+        if status < 0:
+            log.info("%s: killed final_install_command (%s)", self.name, status)
+        else:
+            log.info('%s final_install_command stdout: %s\n', self.name,
+                        outs.decode(encoding=sys.getdefaultencoding(),
+                                    errors='replace'))
+            log.info('%s final_install_command stderr: %s\n', self.name,
+                        errs.decode(encoding=sys.getdefaultencoding(),
+                                    errors='replace'))
+            log.info("%s: finished final_install_command with status %s!",
+                        self.name, status)
+
+        if status > 0:
+            log.error("%s: final_install failed! Website may be broken!",
+                      self.name)
 
     def build_blocking(self):
         self._abort = False
@@ -143,7 +171,5 @@ class DeploymentRunner:
                                       errors='replace'))
                 log.info("%s: finished build_command with status %s!",
                          self.name, status)
-
             if status == 0:
-                # TODO: postproc...
-                pass
+                self.final_install()
