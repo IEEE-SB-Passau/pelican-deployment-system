@@ -3,7 +3,7 @@ import shlex
 from collections import namedtuple
 from subprocess import Popen, PIPE
 
-CmdResult = namedtuple("CmdResult", "status stdout stderr")
+CmdResult = namedtuple("CmdResult", "cmd status stdout stderr")
 
 class GitCommandError(Exception):
     def __init__(self, message, result, *args, **kwargs):
@@ -30,10 +30,10 @@ class Repo:
         proc = self.popen_cmd(*args, env=env)
         outs, errs = proc.communicate(timeout=timeout)
         status = proc.wait()
-        res = CmdResult(status, outs, errs)
+        res = CmdResult(args,status, outs, errs)
         if status != 0 and errors_raise:
             raise GitCommandError("git failed: {}".format(args), res)
-        return CmdResult(status, outs, errs)
+        return res
 
     def popen_cmd(self, *args, env=None, universal_newlines=True):
         return Popen(args, stdout=PIPE, stderr=PIPE, cwd=self.repo_dir, env=env,
@@ -49,4 +49,14 @@ class Repo:
     def config_get(self, key):
         res = self.config("--get", key)
         return res.stdout.rstrip("\r\n")
+
+def log_git_result(result, out_logger=None, err_logger=None, status_logger=None):
+    if status_logger:
+        err_logger('%s exit status: %s', result.cmd, result.status)
+    if out_logger:
+        out_logger('git stdout:\n%s', result.stdout)
+    if err_logger:
+        err_logger('git stderr:\n%s', result.stderr)
+
+
 

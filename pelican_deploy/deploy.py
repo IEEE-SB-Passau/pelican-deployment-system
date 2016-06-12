@@ -1,6 +1,7 @@
 from pathlib import Path
 from collections import namedtuple
-from pelican_deploy.gittool import Repo
+from pelican_deploy.gittool import Repo, log_git_result
+from functools import partial
 from subprocess import Popen, PIPE
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
@@ -11,6 +12,9 @@ import os
 import atexit
 
 log = logging.getLogger(__name__)
+
+log_git = partial(log_git_result, out_logger=log.debug,
+                  err_logger=log.debug, status_logger=log.debug)
 
 BUILD_REPO_DIR = "{name}_build_repo"
 OUTPUT_DIR = "{name}_output"
@@ -60,6 +64,8 @@ class DeploymentRunner:
                 log.info("Build repository %s not there, cloneing", e)
                 result = repo.clone("--branch", "self.git_branch",
                                     "--depth", "1", self.clone_url, ".")
+                log_git(result)
+
 
         origin_url = repo.config_get("remote.origin.url")
         if origin_url != self.clone_url:
@@ -69,23 +75,29 @@ class DeploymentRunner:
 
         # deinit submodules to avoid removed ones dangling around later
         # they should stay around in .git, so reinit should be fast
-        repo.submodule("deinit", ".")
+        result = repo.submodule("deinit", ".")
+        log_git(result)
 
         log.info("%s build_repo: reset it hard!", self.name)
-        repo.reset("--hard")
+        result = repo.reset("--hard")
+        log_git(result)
 
         log.info("%s build_repo: pulling changes from origin", self.name)
         refspec = "+{b}:{b}".format(b=self.git_branch)
-        repo.pull("--force", "--no-edit", "--recurse-submodules", "--depth",
-                  "1", "origin", refspec)
+        result = repo.pull("--force", "--no-edit", "--recurse-submodules",
+                           "--depth", "1", "origin", refspec)
+        log_git(result)
+
         try:
-            repo.clean("--force", "-d", "-x")
+            result = repo.clean("--force", "-d", "-x")
+            log_git(result)
         except:
             log.warning("git clean failed!", exc_info=True)
 
         # update the submodules
         log.info("%s build_repo: update submodules", self.name)
-        repo.submodule("update", "--init", "--force", "--recursive")
+        result = repo.submodule("update", "--init", "--force", "--recursive")
+        log_git(result)
 
     def build(self, abort_running=False):
         with self._build_lock:
