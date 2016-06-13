@@ -10,7 +10,6 @@ import sys
 import logging
 import shlex
 import os
-import atexit
 
 log = logging.getLogger(__name__)
 
@@ -137,11 +136,10 @@ class DeploymentRunner:
     def final_install(self):
         args = shlex.split(self.final_install_command)
         log.info("%s: Starting final_install `%s`", self.name, args)
-        proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-        atexit.register(proc.kill)
+        proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True,
+                     start_new_session=True)
         outs, errs = proc.communicate()
         status = proc.wait()
-        atexit.unregister(proc.kill)
 
         if status < 0:
             log.info("%s: killed final_install_command (%s)", self.name, status)
@@ -169,11 +167,10 @@ class DeploymentRunner:
             self._build_proc = Popen(args, stdout=PIPE, stderr=PIPE,
                                      cwd=str(self.build_repo_path),
                                      env=self._build_proc_env,
-                                     universal_newlines=True)
-            atexit.register(self._build_proc.kill)
+                                     universal_newlines=True,
+                                     start_new_session=True)
             outs, errs = self._build_proc.communicate()
             status = self._build_proc.wait()
-            atexit.unregister(self._build_proc.kill)
 
             if status < 0:
                 log.info("%s: killed build_command", self.name)
@@ -184,3 +181,7 @@ class DeploymentRunner:
                 log.info('%s build_command stderr: %s\n', self.name, errs)
             if status == 0:
                 self.final_install()
+
+    def shutdown(self):
+        self.try_abort_build()
+        self._executor.shutdown(wait=True)

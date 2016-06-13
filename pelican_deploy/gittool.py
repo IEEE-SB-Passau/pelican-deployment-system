@@ -41,7 +41,8 @@ class Repo:
 
     def popen_cmd(self, *args, env=None, universal_newlines=True):
         return Popen(args, stdout=PIPE, stderr=PIPE, cwd=self.repo_dir, env=env,
-                     universal_newlines=universal_newlines)
+                     universal_newlines=universal_newlines,
+                     start_new_session=True)
 
     def is_bare(self):
         result = self.rev_parse("--is-bare-repository")
