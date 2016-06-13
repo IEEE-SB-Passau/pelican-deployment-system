@@ -11,15 +11,12 @@ import logging
 import atexit
 import sys
 
-if __name__ == "__main__":
+def init_app(configpath):
 
-    config = SourceFileLoader("config", "deploy_config.py").load_module()
+    config = SourceFileLoader("config", configpath).load_module()
 
     runners = {name: DeploymentRunner(name, conf)
                for name, conf in config.RUNNERS.items()}
-
-    #for r in runners.values():
-    #    print(r.build(wait=True))
 
     for r in runners.values():
         atexit.register(r.shutdown)  # finally, wait for builds to finish
@@ -50,4 +47,13 @@ if __name__ == "__main__":
     pelican_deploy.webhookbottle.set_github_secret(config.GITHUB_SECRET)
     default_app().mount("/hooks/", pelican_deploy.webhookbottle.app)
 
-    run(host='0.0.0.0', port=4000, debug=True)
+    return default_app()
+
+if __name__ == "__main__":
+    if (len(sys.argv) != 4):
+        print("Usage: {} <configfile> <host> <port>".format(sys.argv[0]))
+        sys.exit(1)
+    _, configpath, host, port = sys.argv
+
+    app = init_app(configpath)
+    run(app=app, host=host, port=port, debug=True)
