@@ -85,7 +85,7 @@ class DeploymentRunner:
 
         # deinit submodules to avoid removed ones dangling around later
         # they should stay around in .git, so reinit should be fast
-        result = repo.submodule("deinit", ".")
+        result = repo.submodule("deinit", "--force", ".")
         log_git(result)
 
         result = repo.checkout("--force", self.git_branch)
@@ -111,7 +111,7 @@ class DeploymentRunner:
         result = repo.submodule("update", "--init", "--force", "--recursive")
         log_git(result)
 
-    def build(self, abort_running=False):
+    def build(self, abort_running=False, wait=False):
         with self._build_lock:
             if abort_running:
                 self.try_abort_build()
@@ -123,7 +123,10 @@ class DeploymentRunner:
                     self._futures.remove(fut)
 
             build_func = exception_logged(self.build_blocking, log.error)
-            self._futures.add(self._executor.submit(build_func))
+            future = self._executor.submit(build_func)
+            self._futures.add(future)
+        if wait:
+            return future.result()
 
     def try_abort_build(self):
         proc = self._build_proc

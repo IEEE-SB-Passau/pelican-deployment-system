@@ -62,5 +62,3 @@ def github(name):
     _start_build(name, hook.get("ref", ""))
     return "Success!"
 
-def devrun():
-    run(app=app, host='0.0.0.0', port=4000, debug=True)
