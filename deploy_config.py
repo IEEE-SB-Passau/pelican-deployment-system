@@ -1,5 +1,6 @@
 import os
 import logging
+from apscheduler.triggers.cron import CronTrigger
 
 if __name__ == "__main__":
     raise SystemExit("Not meant to be run directly!")
@@ -48,5 +49,13 @@ RUNNERS = {
         "build_env": {"PELICAN_SITEURL": "//apu:800"}
     }
 }
+
+# define crojobs as sequence of (runner, trigger) pairs, for cron triggers see
+# http://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html
+SCHEDULED_BUILD_JOBS = [
+    ("website_master", CronTrigger(minute="*/5"))
+
+]
+
 
 
