@@ -59,7 +59,7 @@ RUNNERS = {
 # define crojobs as sequence of (runner, trigger) pairs, for cron triggers see
 # http://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html
 SCHEDULED_BUILD_JOBS = [
-    ("website_master", CronTrigger(minute="*/5"))
+    ("website_master", CronTrigger(minute="*/30"))
 
 ]
 
