@@ -143,7 +143,10 @@ class DeploymentRunner:
         proc = self._build_proc
         self._abort = True
         if proc:
-            proc.kill()
+            try:
+                proc.kill()
+            except:
+                log.debug("unable to kill", exc_info=True)
 
     def final_install(self):
         args = shlex.split(self.final_install_command)
