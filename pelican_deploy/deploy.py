@@ -98,7 +98,7 @@ class DeploymentRunner:
         log.info("%s build_repo: pulling changes from origin", self.name)
         refspec = "+{b}:{b}".format(b=self.git_branch)
         try:
-            result = repo.pull("--force", "--no-edit", "--recurse-submodules",
+            result = repo.pull("--force", "--recurse-submodules",
                                "--depth", "1", "origin", refspec)
             log_git(result)
         except Exception as e:
