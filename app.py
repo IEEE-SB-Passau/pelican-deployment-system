@@ -27,7 +27,7 @@ def init_app(configpath):
     schedulers = {r: BackgroundScheduler(daemon=True) for r in runners}
     for s in schedulers.values():
         s.start()
-        atexit.register(s.shutdown)  # first stop the schedulers
+        atexit.register(s.shutdown, wait=False)  # first stop the schedulers
 
     atexit.register(print,
                     "<><><><><><><><><><><><><><><><><><><><><><><><><>\n",
