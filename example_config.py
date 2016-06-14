@@ -15,6 +15,11 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s')
 
 # make sure git does not block giving pw prompts, git 2.3+ only
 os.environ["GIT_TERMINAL_PROMPT"] = "0"
+os.environ["GIT_ASKPASS"] = "echo" # also to avoid interactiveness
+os.environ["GIT_EDITOR"] = "true" # also to avoid interactiveness
+os.environ["GIT_PAGER"] = "cat" # also to avoid interactiveness
+# avoid system config, we want default behaviour
+os.environ["GIT_CONFIG_NOSYSTEM"] = "yes"
 
 # needs to be a byte like object
 GITHUB_SECRET = b"changetosomethingrandomlong"
