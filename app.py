@@ -7,6 +7,7 @@ from operator import methodcaller
 from bottle import run, default_app
 from wsgiref.simple_server import make_server
 import pelican_deploy.webhookbottle
+import pelican_deploy.statusbottle
 import logging
 import atexit
 import sys
@@ -47,6 +48,12 @@ def init_app(configpath):
     pelican_deploy.webhookbottle.set_runners(**runners)
     pelican_deploy.webhookbottle.set_github_secret(config.GITHUB_SECRET)
     default_app().mount("/hooks/", pelican_deploy.webhookbottle.app)
+
+    pelican_deploy.statusbottle.set_auth_basic_fn(getattr(config,
+                                                    "STATUS_AUTH_BASIC_FN",
+                                                    lambda us, pw: False))
+    pelican_deploy.statusbottle.set_runners(**runners)
+    default_app().mount("/status/", pelican_deploy.statusbottle.app)
 
     return default_app()
 

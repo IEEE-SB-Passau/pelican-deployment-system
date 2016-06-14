@@ -169,7 +169,8 @@ class DeploymentRunner:
 
     def final_install(self):
         args = shlex.split(self.final_install_command)
-        self.update_status(True, "Starting final_install")
+        self.update_status(True, "Starting final_install",
+                           payload={"cmd": args})
         log.info("%s: Starting final_install `%s`", self.name, args)
         proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True,
                      start_new_session=True)

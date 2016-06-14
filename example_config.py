@@ -1,6 +1,7 @@
 import os
 import logging
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
 if __name__ == "__main__":
     raise SystemExit("Not meant to be run directly!")
@@ -59,9 +60,12 @@ RUNNERS = {
 # define crojobs as sequence of (runner, trigger) pairs, for cron triggers see
 # http://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html
 SCHEDULED_BUILD_JOBS = [
-    ("website_master", CronTrigger(minute="*/30"))
+    ("website_master", CronTrigger(minute="*/30")),
+    ("website_master", DateTrigger()) # once at start
 
 ]
 
-
+# username, password for /status/... subpages, accepts nothing if not set
+def STATUS_AUTH_BASIC_FN(user, passw):
+    return user == "powerpoint" and passw == "karaoke"
 
