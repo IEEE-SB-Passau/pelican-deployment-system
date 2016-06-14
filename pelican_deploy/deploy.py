@@ -1,11 +1,13 @@
 from pathlib import Path
-from collections import namedtuple
+from collections import namedtuple, deque
 from pelican_deploy.gittool import Repo, log_git_result
 from functools import partial
 from subprocess import Popen, PIPE
 from pelican_deploy.util import exception_logged
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock
+from datetime import datetime
+import pytz
 import sys
 import logging
 import shlex
@@ -18,6 +20,9 @@ log_git = partial(log_git_result, out_logger=log.debug,
 
 BUILD_REPO_DIR = "{name}_build_repo"
 OUTPUT_DIR = "{name}_output"
+STATUS_LEN = 500
+
+BuildStatus = namedtuple("BuildStatus", "date ok msg payload running")
 
 class PullError(Exception):
     pass
@@ -52,6 +57,12 @@ class DeploymentRunner:
         self._abort = False
         self._build_lock = RLock()
         self._repo_update_lock = RLock()
+
+        self.build_status = deque(maxlen=STATUS_LEN)
+
+    def update_status(self, ok, msg, payload=None, running=True):
+        date = pytz.utc.localize(datetime.utcnow())
+        self.build_status.append(BuildStatus(date, ok, msg, payload, running))
 
     def update_build_repository(self):
         with self._repo_update_lock:
@@ -131,10 +142,18 @@ class DeploymentRunner:
                 if fut.done():
                     self._futures.remove(fut)
 
-            build_bl = partial(self.build_blocking, ignore_pull_error=
-                               ignore_pull_error)
-            build_func = exception_logged(build_bl, log.error)
-            future = self._executor.submit(build_func)
+            def build_job():
+                build_bl = partial(self._build_blocking, ignore_pull_error=
+                                   ignore_pull_error)
+                build_func = exception_logged(build_bl, log.error)
+                try:
+                    build_func()
+                except Exception as e:
+                    self.update_status(False, "Build stopped with exception",
+                                       running=False, payload={"exception": e})
+                    raise
+
+            future = self._executor.submit(build_job)
             self._futures.add(future)
         if wait:
             return future.result()
@@ -150,6 +169,7 @@ class DeploymentRunner:
 
     def final_install(self):
         args = shlex.split(self.final_install_command)
+        self.update_status(True, "Starting final_install")
         log.info("%s: Starting final_install `%s`", self.name, args)
         proc = Popen(args, stdout=PIPE, stderr=PIPE, universal_newlines=True,
                      start_new_session=True)
@@ -165,25 +185,36 @@ class DeploymentRunner:
             log.info('%s final_install_command stderr: %s\n', self.name, errs)
 
         if status > 0:
+            self.update_status(False, ("final_install_command failed."
+                               " Website may be broken!"),
+                               payload={"status": status,
+                                        "stdout": outs, "stderr": errs})
             log.error("%s: final_install failed! Website may be broken!",
                       self.name)
+        else:
+            self.update_status(True, "finished final_install_command",
+                               payload={"stdout": outs, "stderr": errs})
 
-    def build_blocking(self, ignore_pull_error=False):
+    def _build_blocking(self, ignore_pull_error=False):
         self._abort = False
 
         # preparing build environment
         try:
+            self.update_status(True, "Start updating repository")
             self.update_build_repository()
         except PullError:
             if ignore_pull_error:
-                log.warning(("Git pull failed, trying"
-                            " to continue with what we have"), exc_info=True)
+                msg = "Git pull failed, trying to continue with what we have"
+                self.update_status(False, msg)
+                log.warning(msg, exc_info=True)
             else:
                 raise
 
         # start the build if we should not abort
         if not self._abort:
             args = shlex.split(self.build_command)
+            self.update_status(True, "Starting the main build command",
+                               payload={"cmd": args})
             log.info("%s: Starting build_command `%s`", self.name, args)
             self._build_proc = Popen(args, stdout=PIPE, stderr=PIPE,
                                      cwd=str(self.build_repo_path),
@@ -194,6 +225,7 @@ class DeploymentRunner:
             status = self._build_proc.wait()
 
             if status < 0:
+                self.update_status(False, "killed build_command")
                 log.info("%s: killed build_command", self.name)
             else:
                 log.info("%s: finished build_command with status %s!",
@@ -201,7 +233,17 @@ class DeploymentRunner:
                 log.info('%s build_command stdout: %s\n', self.name, outs)
                 log.info('%s build_command stderr: %s\n', self.name, errs)
             if status == 0:
+                self.update_status(True, "finished build_command",
+                                   payload={"stdout": outs, "stderr": errs})
                 self.final_install()
+            else:
+                self.update_status(False, "build_command failed",
+                                   payload={"status": status,
+                                   "stdout": outs, "stderr": errs})
+
+            self.update_status(self.build_status[-1].ok, "End of build",
+                               running=False)
+
 
     def shutdown(self):
         self.try_abort_build()
