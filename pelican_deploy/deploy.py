@@ -19,6 +19,8 @@ log_git = partial(log_git_result, out_logger=log.debug,
 BUILD_REPO_DIR = "{name}_build_repo"
 OUTPUT_DIR = "{name}_output"
 
+class PullError(Exception):
+    pass
 
 class DeploymentRunner:
 
@@ -95,9 +97,14 @@ class DeploymentRunner:
 
         log.info("%s build_repo: pulling changes from origin", self.name)
         refspec = "+{b}:{b}".format(b=self.git_branch)
-        result = repo.pull("--force", "--no-edit", "--recurse-submodules",
-                           "--depth", "1", "origin", refspec)
-        log_git(result)
+        try:
+            result = repo.pull("--force", "--no-edit", "--recurse-submodules",
+                               "--depth", "1", "origin", refspec)
+            log_git(result)
+        except Exception as e:
+            # need to reinit the submodules
+            self._update_build_repo_submodules(repo)
+            raise PullError from e
 
         try:
             result = repo.clean("--force", "-d", "-x")
@@ -106,11 +113,14 @@ class DeploymentRunner:
             log.warning("git clean failed!", exc_info=True)
 
         # update the submodules
+        self._update_build_repo_submodules(repo)
+
+    def _update_build_repo_submodules(self, repo):
         log.info("%s build_repo: update submodules", self.name)
         result = repo.submodule("update", "--init", "--force", "--recursive")
         log_git(result)
 
-    def build(self, abort_running=False, wait=False):
+    def build(self, abort_running=False, wait=False, ignore_pull_error=False):
         with self._build_lock:
             if abort_running:
                 self.try_abort_build()
@@ -121,7 +131,9 @@ class DeploymentRunner:
                 if fut.done():
                     self._futures.remove(fut)
 
-            build_func = exception_logged(self.build_blocking, log.error)
+            build_bl = partial(self.build_blocking, ignore_pull_error=
+                               ignore_pull_error)
+            build_func = exception_logged(build_bl, log.error)
             future = self._executor.submit(build_func)
             self._futures.add(future)
         if wait:
@@ -153,12 +165,18 @@ class DeploymentRunner:
             log.error("%s: final_install failed! Website may be broken!",
                       self.name)
 
-    def build_blocking(self):
+    def build_blocking(self, ignore_pull_error=False):
         self._abort = False
 
         # preparing build environment
-        self.update_build_repository()
-        # TODO: prepare_output()
+        try:
+            self.update_build_repository()
+        except PullError:
+            if ignore_pull_error:
+                log.warning(("Git pull failed, trying"
+                            " to continue with what we have"), exc_info=True)
+            else:
+                raise
 
         # start the build if we should not abort
         if not self._abort:

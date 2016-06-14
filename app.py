@@ -41,7 +41,8 @@ def init_app(configpath):
                                   name="{} ({})".format(rname, i),
                                   id="{}_{}".format(rname, i),
                                   max_instances=1,
-                                  kwars={"wait": True})
+                                  kwargs={"wait": True,
+                                         "ignore_pull_error": True})
 
     pelican_deploy.webhookbottle.set_runners(**runners)
     pelican_deploy.webhookbottle.set_github_secret(config.GITHUB_SECRET)
