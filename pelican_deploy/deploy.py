@@ -226,6 +226,7 @@ class DeploymentRunner:
                                      start_new_session=True)
             outs, errs = self._build_proc.communicate()
             status = self._build_proc.wait()
+            self._build_proc = None
 
             if status < 0:
                 self.update_status(False, "killed build_command")
