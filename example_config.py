@@ -49,7 +49,8 @@ RUNNERS = {
 
         # command which builds the website
         # important: specify {output} as output path of the generator
-        "build_command": ('tox -e pelican --result-json "{output}/result.json" '
+        # if you use toy you may use {toxresult} as the path to the result.json
+        "build_command": ('tox -e pelican --result-json "{toxresult}" '
                           '--recreate -- -d --output "{output}"'),
 
         # will be added to env when running build_command

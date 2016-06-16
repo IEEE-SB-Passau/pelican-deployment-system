@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 log_git = partial(log_git_result, out_logger=log.debug,
                   err_logger=log.debug, status_logger=log.debug)
 
+TOX_RESULT_FILE = "{name}_result.json"
 BUILD_REPO_DIR = "{name}_build_repo"
 OUTPUT_DIR = "{name}_output"
 STATUS_LEN = 500
@@ -43,8 +44,9 @@ class DeploymentRunner:
         self.build_repo_path = self.working_directory / BUILD_REPO_DIR.format(
             name=name)
         outdir = self.working_directory / OUTPUT_DIR.format(name=name)
+        toxresult = self.working_directory / TOX_RESULT_FILE.format(name=name)
         self.build_command = runner_config["build_command"].format(
-            output=outdir)
+            output=outdir, toxresult=toxresult)
         self.final_install_command = runner_config["final_install_command"]\
             .format(output=outdir)
 
