@@ -1,6 +1,7 @@
-from bottle import route, template, request, post, Bottle, HTTPError,auth_basic
+from bottle import route, template, request, post, Bottle, HTTPError, auth_basic
 from pprint import pformat
 from itertools import islice
+from functools import wraps
 import logging
 import sys
 
@@ -9,8 +10,16 @@ log = logging.getLogger(__name__)
 app = Bottle()
 
 
-def _auth_basic_fn(us, pw):
-    return app.config.get("auth_basic_fn", lambda us, pw: False)(us, pw)
+def _auth_basic(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        authfn = app.config.get("auth_basic_fn")
+        if authfn:
+            return auth_basic(authfn)(fn)(*args, **kwargs)
+        else:
+            return fn(*args, **kwargs)
+    return wrapper
+
 
 def set_runners(**name_runner_mapping):
     app.config["deploy.runners"] = name_runner_mapping
@@ -56,7 +65,7 @@ def status():
     return template(tpl, runners=app.config["deploy.runners"].values())
 
 @app.route('/<name>')
-@auth_basic(_auth_basic_fn)
+@_auth_basic
 def runnerstatus(name):
     runner = _get_runner(name)
     rerun = "rerun" in request.query
@@ -89,7 +98,7 @@ def runnerstatus(name):
     return template(tpl, runner=runner, bss=runner.build_status, islice=islice,
                     pformat=pformat, start=start, end=end)
 
-@auth_basic(_auth_basic_fn)
+@_auth_basic
 @app.route('/<name>/rerun')
 def rerun(name):
     runner = _get_runner(name)

@@ -66,7 +66,7 @@ SCHEDULED_BUILD_JOBS = [
 
 ]
 
-# username, password for /status/... subpages, accepts nothing if not set
+# user, pass for /status/... subpages, if not set or None no auth is done
 def STATUS_AUTH_BASIC_FN(user, passw):
     return user == "powerpoint" and passw == "karaoke"
 

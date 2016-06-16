@@ -50,8 +50,7 @@ def init_app(configpath):
     default_app().mount("/hooks/", pelican_deploy.webhookbottle.app)
 
     pelican_deploy.statusbottle.set_auth_basic_fn(getattr(config,
-                                                    "STATUS_AUTH_BASIC_FN",
-                                                    lambda us, pw: False))
+                                                  "STATUS_AUTH_BASIC_FN", None))
     pelican_deploy.statusbottle.set_runners(**runners)
     default_app().mount("/status/", pelican_deploy.statusbottle.app)
 
