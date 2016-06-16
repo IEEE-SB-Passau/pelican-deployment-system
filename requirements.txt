@@ -3,3 +3,4 @@ apscheduler
 pytz
 tzlocal
 tox
+waitress

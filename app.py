@@ -64,4 +64,4 @@ if __name__ == "__main__":
     _, configpath, host, port = sys.argv
 
     app = init_app(configpath)
-    run(app=app, host=host, port=port, debug=True)
+    run(app=app, host=host, port=port, server="waitress")
