@@ -20,6 +20,8 @@ def _auth_basic(fn):
             return fn(*args, **kwargs)
     return wrapper
 
+def set_schedulers(**name_scheduler_mapping):
+    app.config["deploy.schedulers"] = name_scheduler_mapping
 
 def set_runners(**name_runner_mapping):
     app.config["deploy.runners"] = name_runner_mapping
@@ -56,13 +58,22 @@ def status():
         % else:
             No job was ever running.
         % end
+        <ul>
+        <li>Scheduled Jobs: </li>
+        <ul>
+        % for j in scheds[r.name].get_jobs():
+            <li>{{j}}</li>
+        % end
+        </ul>
+        </ul>
         </li>
 
       % end
     </ul>
     </html>
     """
-    return template(tpl, runners=app.config["deploy.runners"].values())
+    return template(tpl, runners=app.config["deploy.runners"].values(),
+                    scheds=app.config["deploy.schedulers"])
 
 @app.route('/<name>')
 @_auth_basic

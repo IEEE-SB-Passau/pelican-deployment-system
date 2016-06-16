@@ -52,6 +52,7 @@ def init_app(configpath):
     pelican_deploy.statusbottle.set_auth_basic_fn(getattr(config,
                                                   "STATUS_AUTH_BASIC_FN", None))
     pelican_deploy.statusbottle.set_runners(**runners)
+    pelican_deploy.statusbottle.set_schedulers(**schedulers)
     default_app().mount("/status/", pelican_deploy.statusbottle.app)
 
     return default_app()
