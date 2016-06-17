@@ -21,7 +21,7 @@ if __name__ == "__main__":
     raise SystemExit("Not meant to be run directly!")
 
 def _rsync_cmd(dest):
-    cmd = ("rsync --delete-delay --recursive --times --stats "
+    cmd = ("rsync --delete-delay --recursive --times --stats --delay-updates "
            "'{output}/' '{dest}'")
     return cmd.format(dest=dest, output="{output}")
 
