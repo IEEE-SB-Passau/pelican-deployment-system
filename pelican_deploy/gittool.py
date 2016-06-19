@@ -15,7 +15,7 @@
 import os
 import errno
 import shlex
-from collections import namedtuple
+from collections import namedtuple, deque
 from subprocess import Popen, PIPE
 
 CmdResult = namedtuple("CmdResult", "cmd status stdout stderr")
@@ -68,6 +68,33 @@ class Repo:
     def config_get(self, key):
         res = self.config("--get", key)
         return res.stdout.rstrip("\r\n")
+
+    def submodule_sync_update_init_recursive_force(self):
+        results = []
+        todo = deque()
+        todo.extend(self._get_submod_paths())
+        while todo:
+            curr = todo.popleft()
+            if not os.path.exists(os.path.join(self.repo_dir, curr)):
+                continue #  that happens, strangely...
+            results.append(self.cmd(self.git_cmd, "-C", curr,
+                                    "submodule", "sync"))
+            results.append(self.cmd(self.git_cmd, "-C", curr,
+                                    "submodule", "update", "--init", "--force"))
+            todo.extend(os.path.join(curr, p) for p in
+                        self._get_submod_paths(curr))
+        return results
+
+    def _get_submod_paths(self, submod="."):
+        if not os.path.exists(os.path.join(self.repo_dir, submod,
+                                           ".gitmodules")):
+            return ()
+
+        result = self.cmd(self.git_cmd, "-C", submod, "config", "--file",
+                          ".gitmodules", "--get-regexp", "submodule\..*\.path")
+        return tuple(p.split(maxsplit=1)[1] for p in result.stdout.splitlines())
+
+
 
 def log_git_result(result, out_logger=None, err_logger=None, status_logger=None):
     if status_logger:
