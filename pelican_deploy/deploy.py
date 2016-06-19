@@ -144,6 +144,9 @@ class DeploymentRunner:
 
     def _update_build_repo_submodules(self, repo):
         log.info("%s build_repo: update submodules", self.name)
+        # we must update the urls if changed!
+        result = repo.submodule("sync", "--recursive")
+        log_git(result)
         result = repo.submodule("update", "--init", "--force", "--recursive")
         log_git(result)
 
