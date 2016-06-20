@@ -84,7 +84,7 @@ class DeploymentRunner:
         def clean_fn():
             rmpaths = [str(self.build_repo_path), str(self._output_dir)]
             for p in rmpaths:
-                check_call(["rm", "-rf"] + p)
+                check_call(["rm", "-rf", p])
 
         with self._build_lock:
             if abort_running:
