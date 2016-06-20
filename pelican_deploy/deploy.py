@@ -82,8 +82,7 @@ class DeploymentRunner:
 
     def clean_working_dir_blocking(self, abort_running=True):
         def clean_fn():
-            rmpaths = map(shlex.split, [str(self.build_repo_path),
-                                        str(self._output_dir)])
+            rmpaths = [str(self.build_repo_path), str(self._output_dir)])
             for p in rmpaths:
                 check_call(["rm", "-rf"] + p)
 
