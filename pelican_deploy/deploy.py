@@ -133,7 +133,7 @@ class DeploymentRunner:
                 log.error(
                     "non-empty %s exists but not a valid git repository!",
                     self.build_repo_path)
-                raise RuntimeException(("non-empty {} exists but not a"
+                raise RuntimeError(("non-empty {} exists but not a"
                     "valid git repository!").format(self.build_repo_path))
             else:
                 log.info("Build repository %s not there, cloning",
