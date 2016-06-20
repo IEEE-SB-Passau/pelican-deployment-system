@@ -16,12 +16,11 @@ from pathlib import Path
 from collections import namedtuple, deque
 from pelican_deploy.gittool import Repo, log_git_result
 from functools import partial
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, check_call
 from pelican_deploy.util import exception_logged
 from concurrent.futures import ThreadPoolExecutor
 from threading import RLock, Thread
 from datetime import datetime
-from shutil import rmtree
 import pytz
 import sys
 import logging
@@ -83,8 +82,10 @@ class DeploymentRunner:
 
     def clean_working_dir_blocking(self, abort_running=True):
         def clean_fn():
-            rmtree(str(self.build_repo_path))
-            rmtree(str(self._output_dir))
+            rmpaths = map(shlex.split, [str(self.build_repo_path),
+                                        str(self._output_dir)])
+            for p in rmpaths:
+                check_call(["rm", "-rf"] + p)
 
         with self._build_lock:
             if abort_running:
