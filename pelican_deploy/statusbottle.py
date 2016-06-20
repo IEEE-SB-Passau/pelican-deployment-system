@@ -100,8 +100,12 @@ def runnerstatus(name):
     end = end if end >= 0 else 0
     tpl = """
     <html>
-    <h1>{{runner.name}} status events ({{start}} - {{end}}) --
-    <a href={{runner.name}}/rerun>(re)start build</a></h1>
+    <h1>{{runner.name}} status events ({{start}} - {{end}})</h1>
+    <p>
+    <a href={{runner.name}}/rerun>(re)start build</a> --
+    <a href={{runner.name}}/clean_working_dir>clean working dir (use e.g. if
+    repository is somehow in a broken state)</a>
+    </p>
     <ul>
     % for bs in islice(reversed(bss),start,end):
         <%
@@ -129,3 +133,10 @@ def rerun(name):
     runner = _get_runner(name)
     runner.build(abort_running=True, ignore_pull_error=True)
     return "Restarted the build"
+
+@_auth_basic
+@app.route('/<name>/clean_working_dir')
+def rerun(name):
+    runner = _get_runner(name)
+    runner.clean_working_dir()
+    return "Invoked cleaning of working dir"

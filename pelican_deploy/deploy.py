@@ -19,8 +19,9 @@ from functools import partial
 from subprocess import Popen, PIPE
 from pelican_deploy.util import exception_logged
 from concurrent.futures import ThreadPoolExecutor
-from threading import RLock
+from threading import RLock, Thread
 from datetime import datetime
+from shutil import rmtree
 import pytz
 import sys
 import logging
@@ -63,6 +64,7 @@ class DeploymentRunner:
             output=outdir, toxresult=toxresult)
         self.final_install_command = runner_config["final_install_command"]\
             .format(output=outdir)
+        self._output_dir = outdir
 
         self._build_proc_env = dict(os.environ,
                                     **runner_config.get("build_env", {}))
@@ -75,6 +77,41 @@ class DeploymentRunner:
         self._repo_update_lock = RLock()
 
         self.build_status = deque(maxlen=STATUS_LEN)
+
+    def clean_working_dir(self, abort_running=True):
+        Thread(target=self.clean_working_dir_blocking).start()
+
+    def clean_working_dir_blocking(self, abort_running=True):
+        def clean_fn():
+            rmtree(str(self.build_repo_path))
+            rmtree(str(self._output_dir))
+
+        with self._build_lock:
+            if abort_running:
+                self.try_abort_build()
+
+            # cancel everything, so we are next
+            for fut in self._futures.copy():
+                fut.cancel()
+                if fut.done():
+                    self._futures.remove(fut)
+
+            def build_job():
+                log.info("Starting cleaning of working dir!")
+                self.update_status(True, "Starting cleaning of working dir!",
+                                       running=False)
+                try:
+                    exception_logged(clean_fn, log.error)()
+                except Exception as e:
+                    self.update_status(False, "Cleaning failed!",
+                                       running=False, payload={"exception": e})
+                    raise
+
+            future = self._executor.submit(build_job)
+            self._futures.add(future)
+            future.result()
+            log.info("Working dir cleand!")
+            self.update_status(True, "Working dir cleand!", running=False)
 
     def update_status(self, ok, msg, payload=None, running=True):
         date = pytz.utc.localize(datetime.utcnow())
@@ -148,7 +185,8 @@ class DeploymentRunner:
         for r in results:
             log_git(r)
 
-    def build(self, abort_running=False, wait=False, ignore_pull_error=False):
+    def build(self, abort_running=False, wait=False, ignore_pull_error=False,
+               build_fn=None):
         with self._build_lock:
             if abort_running:
                 self.try_abort_build()
@@ -159,10 +197,12 @@ class DeploymentRunner:
                 if fut.done():
                     self._futures.remove(fut)
 
-            def build_job():
-                build_bl = partial(self._build_blocking, ignore_pull_error=
+            build_bl = partial(self._build_blocking, ignore_pull_error=
                                    ignore_pull_error)
-                build_func = exception_logged(build_bl, log.error)
+            build_fn = build_fn if build_fn else build_bl
+
+            def build_job():
+                build_func = exception_logged(build_fn, log.error)
                 try:
                     build_func()
                 except Exception as e:
