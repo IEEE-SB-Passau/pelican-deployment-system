@@ -47,7 +47,7 @@ If you want the WSGI app, call ``init_app(configpath)`` in ``app.py``.
 Github webhooks
 ---------------
 
-Point your github webhook to ``http://<listen address>:<port>/hooks/<runner_name>``, you need to define a 
+Point your github webhook to ``http://<listen address>:<port>/github/hooks/<runner_name>``, you need to define a 
 hook for every runner.
 
 Status Page
