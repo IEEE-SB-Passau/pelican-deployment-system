@@ -61,6 +61,7 @@ def init_app(configpath):
 
     pelican_deploy.webhookbottle.set_runners(**runners)
     pelican_deploy.webhookbottle.set_github_secret(config.GITHUB_SECRET)
+    pelican_deploy.webhookbottle.set_gitlab_secret(config.GITLAB_SECRET)
     default_app().mount("/hooks/", pelican_deploy.webhookbottle.app)
 
     pelican_deploy.statusbottle.set_auth_basic_fn(getattr(config,

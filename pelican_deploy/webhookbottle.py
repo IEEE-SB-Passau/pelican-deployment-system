@@ -29,6 +29,9 @@ def set_runners(**name_runner_mapping):
 def set_github_secret(secret):
     app.config["deploy.github_secret"] = secret
 
+def set_gitlab_secret(secret):
+    app.config["deploy.gitlab_secret"] = secret
+
 def _get_runner(name):
     try:
         runners = app.config["deploy.runners"]
@@ -54,6 +57,27 @@ def _verify_github_signature(sighdr, body):
 
     signature = 'sha1=' + hmac.new(secret, body, hashlib.sha1).hexdigest()
     return hmac.compare_digest(sighdr, signature)
+
+
+@app.post('/gitlab/<name>')
+def gitlab(name):
+    token = request.headers.get("X-Gitlab-Token", "")
+    if not token == app.config["deploy.gitlab_secret"]:
+        log.error("GitLab request for %s faild to validate. "
+                  "Have you configured the secret correctly?", name)
+        raise HTTPError(status=403)
+
+    evtype = request.headers.get('X-GitLab-Event')
+    if evtype != "Push Hook":
+        log.info("GitLab sent event of type %s to %s, ignoring", evtype, name)
+        return "Ignored"
+
+    log.info("Got GitLab event of type %s to %s", evtype, name)
+
+    hook = request.json
+
+    _start_build(name, hook.get("ref", ""))
+    return "Success!"
 
 
 @app.post('/github/<name>')
